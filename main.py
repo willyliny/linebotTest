@@ -44,8 +44,7 @@ def callback():
 @app.route("/people", methods=['GET'])
 def people():
     # 从 MongoDB 中获取最新一条数据
-    data = collection.find().sort([('_id', -1)]).limit(1)
-    latest_data = data[0] if data.count() > 0 else None
+    latest_data = collection.find().sort([('_id', -1)]).limit(1).next()
 
     if latest_data:
         image_message = ImageSendMessage(
@@ -79,8 +78,7 @@ def handle_postback(event):
     command = event.postback.data
 
     # 从 MongoDB 中获取最新一条数据
-    data = collection.find().sort([('_id', -1)]).limit(1)
-    latest_data = data[0] if data.count() > 0 else None
+    latest_data = collection.find().sort([('_id', -1)]).limit(1).next()
 
 
     # 點擊即時人流
