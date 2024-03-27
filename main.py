@@ -4,11 +4,17 @@ from linebot import (
 from linebot.exceptions import (
 	InvalidSignatureError
 )
+from pymongo import MongoClient
 from linebot.models import *
 from flask import Flask, request, abort
 import line_richmenu_tools as richmenu_tools
 import config
 import json
+
+MONGO_URI = "mongodb://36.225.63.171:27017/face_data"
+client = MongoClient(MONGO_URI)
+db = client['face_data']
+collection = db['mydata']
 
 app = Flask(__name__)
 
@@ -37,19 +43,19 @@ def callback():
 
 @app.route("/people", methods=['GET'])
 def people():
-    #ID : Ucd05e33d7f362018934e180787b5c837
-    with open(DATA_PATH) as f:
-        # 讀取JSON 檔案
-        data = json.load(f)
+    # 从 MongoDB 中获取最新一条数据
+    data = collection.find().sort([('_id', -1)]).limit(1)
+    latest_data = data[0] if data.count() > 0 else None
 
-    image_message = ImageSendMessage(
-            original_content_url=data["img_link"],
-            preview_image_url=data["img_link"]
-        )
-    line_bot_api.push_message(
-        'Ucd05e33d7f362018934e180787b5c837', image_message)
-
-    return "我呼叫到/people拉"
+    if latest_data:
+        image_message = ImageSendMessage(
+                original_content_url=latest_data["img_link"],
+                preview_image_url=latest_data["img_link"]
+            )
+        line_bot_api.push_message('Ucd05e33d7f362018934e180787b5c837', image_message)
+        return "我呼叫到 /people 拉"
+    else:
+        return "not found data"
 
 
 #有使用者加入時會執行
@@ -71,18 +77,20 @@ def handle_message(event):
 @handler.add(PostbackEvent)
 def handle_postback(event):
     command = event.postback.data
-    with open(DATA_PATH) as f:
-        # 讀取JSON 檔案
-        data = json.load(f)
+
+    # 从 MongoDB 中获取最新一条数据
+    data = collection.find().sort([('_id', -1)]).limit(1)
+    latest_data = data[0] if data.count() > 0 else None
+
 
     # 點擊即時人流
     if command == 'people_number':
-        message = TextSendMessage(text='目前場地人數 : '+str(data["people_counter"]))
+        message = TextSendMessage(text='目前場地人數 : '+str(latest_data["people_counter"]))
         line_bot_api.reply_message(event.reply_token, message)
 
     # 點擊最新通報
     elif command == 'news_alert':       
-        message = TextSendMessage(text = "上次違規影像為: \n" + data["img_link"])
+        message = TextSendMessage(text = "上次違規影像為: \n" + latest_data["img_link"])
         
         line_bot_api.reply_message(event.reply_token, message)
 
